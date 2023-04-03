@@ -1,0 +1,80 @@
+{
+  "Giminė": {
+    "mot.gim.": "Moteriška giminė",
+    "vyr.gim.": "Vyriška giminė",
+    "bendr.gim.": "Bendroji giminė",
+    "bevrd.gim.": "Bevardė giminė"
+  },
+  "Linksnis": {
+    "V.": "Vardininkas",
+    "K.": "Kilmininkas",
+    "N.": "Naudininkas",
+    "G.": "Galininkas",
+    "Įn.": "Įnagininkas",
+    "Vt.": "Vietininkas",
+    "Š.": "Šauksmininkas"
+  },
+  "Skaičius": {
+    "vnsk.": "Vienaskaita",
+    "dgsk.": "Daugiskaita"
+  },
+  "Veiksmažodis": {
+    "Laikas": {
+      "būs.l.": "Būsimasis laikas",
+      "būt.kart.l.": "Būtasis kartinis laikas",
+      "būt.d.l.": "Būtasis dažninis laikas",
+      "būt.l.": "Būtasis laikas",
+      "esam.l.": "Esamasis laikas"
+    },
+    "Grąžintinumas": {
+      "nesngr.": "Nesangrąžinis",
+      "sngr.": "Sangrąžinis"
+    },
+    "Nuosaka": {
+      "Ties.": "Tiesioginė nuosaka",
+      "Tar.": "Tariamoji nuosaka",
+      "Liep.": "Liepiamoji nuosaka"
+    },
+    "Asmuo": {
+      "Iasm.": "Pirmas asmuo",
+      "IIasm.": "Antras asmuo",
+      "IIIasm.": "Trečias asmuo"
+    }
+  },
+  "Įvardis": {
+    "įvardž.": "Įvardžiuotinė forma",
+    "neįvardž.": "Neįvardžiuotinė forma"
+  },
+  "Skaitvardis": {
+    "kiekin.": "Kiekinis",
+    "daugin.": "Dauginis",
+    "kuopin.": "Kuopinis",
+    "kelintin.": "Kelintinis"
+  },
+  "Rūšis": {
+    "neveik.r.": "Neveikiamoji rūšis",
+    "veik.r.": "Veikiamoji rūšis"
+  },
+  "Kiti": {
+    "sutrmp.": "Sutrumpinimas",
+    "T.": "Tikrinis daiktavardis",
+    "reikiamyb.": "Reikiamybės dalyvis"
+  },
+  "Kalbos dalis": {
+    "dktv.": "Daiktavardis",
+    "bdvr.": "Būdvardis",
+    "vksm.": "Veiksmažodis",
+    "dlv.": "Dalyvis",
+    "psdlv.": "Pusdalyvis",
+    "padlv.": "Padalyvis",
+    "būdn.": "Būdinys",
+    "įvrd.": "Įvardis",
+    "sktv.": "Skaitvardis",
+    "prvks.": "Prieveiksmis",
+    "prlnks.": "Prielinksnis",
+    "jngt.": "Jungtukas",
+    "dll.": "Dalelytė",
+    "jstk.": "Jaustukas",
+    "ištk.": "Ištiktukas"
+  }
+}

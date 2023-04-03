@@ -1,0 +1,19 @@
+{
+  "execMap": {
+    "js": "node -r esm"
+  },
+  "env": {
+    "DEBUG": "stm:*",
+    "REDIS_HOST": "redis1a.sistemium.net",
+    "REDIS_DB": 1,
+    "MONGOOSE_DEBUG": "true",
+    "MONGO_URL": "mng2.sistemium.net/kirtis",
+    "DEBUG_NAMESPACE": "stm:krc",
+    "ERROR_NAMESPACE": "stm:krc:error",
+    "PHA_ROLES_URL": "https://oauth.it/pha/roles",
+    "PORT": "3115"
+  },
+  "watch": [
+    "src"
+  ]
+}
