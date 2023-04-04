@@ -5,7 +5,7 @@
   "env": {
     "DEBUG": "stm:*",
     "REDIS_HOST": "redis1a.sistemium.net",
-    "REDIS_DB": 1,
+    "REDIS_DB": 0,
     "MONGOOSE_DEBUG": "true",
     "MONGO_URL": "mng2.sistemium.net/kirtis",
     "DEBUG_NAMESPACE": "stm:krc",
