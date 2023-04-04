@@ -10,6 +10,7 @@ import krc, { getVdu } from './controllers/krc';
 // import auth from './api/auth';
 
 import models, { connect } from './models';
+import suggestions from './controllers/suggestions';
 
 const { PORT } = process.env;
 const app = new Koa();
@@ -20,6 +21,7 @@ defaultRoutes(router, map(models));
 
 router.get('/krc/:word', krc);
 router.get('/vdu/:word', getVdu);
+router.get('/zodynas/:word', suggestions);
 
 app
   .use(logger())
