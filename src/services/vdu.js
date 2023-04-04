@@ -42,10 +42,17 @@ export function miToState(mi) {
   const [cls] = parts;
   parts.splice(0, 1);
   const state = lo.flatten(lo.filter(parts.map(part => {
-    const res = KEYS.get(part);
-    return res || part.split(' ').map(sub => KEYS.get(sub));
+    const res = decodePart(part);
+    return res || part.split(' ').map(sub => decodePart(sub));
   })));
-  return { class: cls, state };
+  return {
+    class: decodePart(cls),
+    state,
+  };
+}
+
+function decodePart(part) {
+  return KEYS.get(part) || part;
 }
 
 /*
