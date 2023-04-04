@@ -11,6 +11,7 @@ import krc, { getVdu } from './controllers/krc';
 
 import models, { connect } from './models';
 import suggestions from './controllers/suggestions';
+import { shortenings } from './services/dictionary';
 
 const { PORT } = process.env;
 const app = new Koa();
@@ -22,6 +23,7 @@ defaultRoutes(router, map(models));
 router.get('/krc/:word', krc);
 router.get('/vdu/:word', getVdu);
 router.get('/zodynas/:word', suggestions);
+router.get('/strp', shortenings);
 
 app
   .use(logger())

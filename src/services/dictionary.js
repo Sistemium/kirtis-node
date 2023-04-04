@@ -4,4 +4,6 @@ import log from 'sistemium-debug';
 
 const { debug } = log('dictionary');
 
-debug(strp);
+export async function shortenings(ctx) {
+  ctx.body = strp;
+}
