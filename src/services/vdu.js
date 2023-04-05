@@ -25,7 +25,8 @@ export function accentInfoToStates(accentInfo) {
       word,
       ...miToState(mi),
     }))));
-  return lo.flattenDeep(res);
+  const flat = lo.flattenDeep(res);
+  return lo.uniqBy(flat, v => `${v.word}|${v.class}|${v.state.join('|')}`);
 }
 
 
