@@ -60,8 +60,8 @@ function decodePart(part) {
  */
 const KEYS = new Map([
   // Lygis
-  ['aukšt. l.', ''],
-  ['aukšč. l.', ''],
+  ['aukšt. l.', 'aukšt. l.'],
+  ['aukšč. l.', 'aukšč. l.'],
   // Giminė
   ['mot. g.', 'mot.gim.'],
   ['vyr. g.', 'vyr.gim.'],
