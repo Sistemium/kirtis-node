@@ -11,10 +11,7 @@ REDIS_HOST and REDIS_OFFLINE_QUEUE=1
 describe('VDU', function () {
 
   before(function (done) {
-    client.on('connect', () => {
-      console.log(1);
-      done();
-    });
+    client.on('connect', done);
   });
 
   it('should parse MI', function () {
@@ -29,7 +26,6 @@ describe('VDU', function () {
 
   it('should find suggestions', async function () {
 
-    console.log('2');
     const matching = await matchingWords('mama');
     expect(matching).eql([
       'mamai',
