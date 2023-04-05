@@ -11,7 +11,7 @@ import krc, { getVdu } from './controllers/krc';
 
 import models, { connect } from './models';
 import suggestions from './controllers/suggestions';
-import { shortenings } from './services/dictionary';
+import shortenings from './controllers/shortenings';
 
 const { PORT } = process.env;
 const app = new Koa();
