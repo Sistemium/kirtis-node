@@ -24,7 +24,7 @@
     "sistemium-data-mongo": "^1.2.2",
     "sistemium-debug": "^1.0.3",
     "sistemium-mongo": "^1.15.1",
-    "sistemium-redis": "^1.0.3"
+    "sistemium-redis": "^1.0.4"
   },
   "devDependencies": {
     "chai": "^4.3.0",
