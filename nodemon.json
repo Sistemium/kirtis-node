@@ -1,6 +1,6 @@
 {
   "execMap": {
-    "js": "node -r esm"
+    "js": "node -r esm-wallaby"
   },
   "env": {
     "DEBUG": "stm:*",
