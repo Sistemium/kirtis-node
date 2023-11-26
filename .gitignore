@@ -4,3 +4,4 @@ dist
 *.sh
 pm2
 .run
+*.local
