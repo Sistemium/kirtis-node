@@ -6,7 +6,7 @@ import { Context } from 'koa';
 export default async function(ctx: Context) {
   const { word } = ctx.params;
   const cached = await findCached(word);
-  if (cached) {
+  if (cached?.length) {
     ctx.body = cached;
     return;
   }
@@ -15,12 +15,15 @@ export default async function(ctx: Context) {
     ctx.throw(404, 'Not a word');
   }
   const proxy = await vdu(word);
-  if (!proxy) {
+  if (!proxy?.length) {
     await saveNotFound(word);
     ctx.throw(404, 'Not a vdu word');
   }
   const res = accentInfoToStates(proxy);
-  ctx.assert(res.length, 404);
+  if (!res.length) {
+    await saveNotFound(word);
+    ctx.throw(404, 'Not a word');
+  }
   await saveCached(word, res);
   ctx.body = res;
 }

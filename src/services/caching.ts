@@ -3,6 +3,7 @@ import log from 'sistemium-debug';
 import lo, { upperFirst } from 'lodash';
 import { mapSeries } from 'async';
 import { hgetAsync } from 'sistemium-redis';
+import { AccentInfo } from './vdu';
 
 const WORDS_HASH = 'kirtis_found_words';
 const NOT_FOUND_SET = 'kirtis_not_found_words';
@@ -11,10 +12,11 @@ const ACCENTUATED_WORDS = 'accentuated_words';
 
 const { debug } = log('caching');
 
-export async function findCached(word: string) {
+export async function findCached(word: string): Promise<AccentInfo[]> {
   const cached = await redis.hgetAsync(WORDS_HASH, normalizeKey(word));
   debug('findCached:', word, cached);
-  return cached && JSON.parse(cached);
+  const parsed: AccentInfo[] | undefined = cached && JSON.parse(cached);
+  return lo.filter(parsed, ({ state }) => state?.length) as AccentInfo[];
 }
 
 export async function saveCached(word: string, data: any) {
@@ -30,7 +32,7 @@ export async function saveNotFound(word: string) {
 
 export async function isNotFound(word: string) {
   const notFound = await redis.sIsMemberAsync(NOT_FOUND_SET, normalizeKey(word));
-  debug('findCached:', word, notFound);
+  debug('findNotFound:', word, notFound);
   return !!notFound;
 }
 
