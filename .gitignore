@@ -5,3 +5,4 @@ dist
 pm2
 .run
 *.local
+json

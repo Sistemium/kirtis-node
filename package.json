@@ -2,13 +2,14 @@
   "name": "kirtis-node",
   "version": "1.0.0",
   "description": "API of kirtis.info",
-  "main": "src/api.js",
+  "main": "dist/api",
   "scripts": {
     "serve": "tsc-watch --onSuccess \"node -r dotenv-flow/config dist/api.js\"",
     "build": "rm -rf dist && tsc && cp package.json dist",
     "test": "ts-mocha test/testVdu.js -r dotenv-flow/config"
   },
   "keywords": [],
+  "files": ["dist"],
   "author": "Sistemium UAB",
   "license": "ISC",
   "dependencies": {
