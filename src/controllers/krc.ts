@@ -17,9 +17,10 @@ export default async function(ctx: Context) {
   const proxy = await vdu(word);
   if (!proxy) {
     await saveNotFound(word);
-    ctx.throw(404, 'Not a vtu word');
+    ctx.throw(404, 'Not a vdu word');
   }
   const res = accentInfoToStates(proxy);
+  ctx.assert(res.length, 404);
   await saveCached(word, res);
   ctx.body = res;
 }

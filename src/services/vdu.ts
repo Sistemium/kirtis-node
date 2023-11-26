@@ -19,22 +19,30 @@ export default async function (word: string): Promise<VDUAccentInfo[] | undefine
   return accentInfo;
 }
 
+interface WordState {
+  class?: string
+  state: string[]
+}
 
-export function accentInfoToStates(accentInfo: VDUAccentInfo[]) {
-  if (!accentInfo) {
-    return null;
+export interface AccentInfo extends WordState {
+  word: string
+}
+
+export function accentInfoToStates(accentInfo: VDUAccentInfo[]): AccentInfo[] {
+  if (!accentInfo?.length) {
+    return [];
   }
   const res = accentInfo
     .map(({ accented, information }) => accented.map(word => information.map(({ mi }) => ({
       word,
       ...miToState(mi),
     }))));
-  const flat = lo.flattenDeep(res);
-  return lo.uniqBy(flat, v => `${v.word}|${v.class}|${v.state.join('|')}`);
+  const flat = lo.flattenDeep<AccentInfo>(res);
+  return lo.uniqBy(flat, v => `${v.word}|${v.class}|${v.state.join('|')}`)
+    .filter(i => i.class && i.state?.length);
 }
 
-
-export function miToState(mi: string) {
+export function miToState(mi: string): WordState {
   if (!mi) {
     return { state: [] };
   }
