@@ -4,9 +4,9 @@
   "description": "API of kirtis.info",
   "main": "src/api.js",
   "scripts": {
-    "serve": "tsc-watch --onSuccess \"node -r dotenv-flow/config dist/index.js\"",
+    "serve": "tsc-watch --onSuccess \"node -r dotenv-flow/config dist/api.js\"",
     "build": "rm -rf dist && tsc && cp package.json dist",
-    "test": "ts-mocha test/testVdu.js"
+    "test": "ts-mocha test/testVdu.js -r dotenv-flow/config"
   },
   "keywords": [],
   "author": "Sistemium UAB",

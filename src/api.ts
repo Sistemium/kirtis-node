@@ -7,8 +7,6 @@ import { map } from 'lodash';
 import assert from 'sistemium-mongo/lib/assert';
 import log from 'sistemium-debug';
 import krc, { getVdu } from './controllers/krc';
-// import auth from './api/auth';
-
 import models, { connect } from './models';
 import suggestions from './controllers/suggestions';
 import shortenings from './controllers/shortenings';
@@ -32,7 +30,7 @@ app
   .use(router.routes());
 
 
-if (!module.parent) {
+if (require.main === module) {
 
   assert(PORT, 'PORT must be specified');
 

@@ -1,9 +1,9 @@
 import { findCached, isNotFound, saveCached, saveNotFound } from '../services/caching';
 import vdu, { accentInfoToStates } from '../services/vdu';
-// import { axios } from 'sistemium-data/types/util/axios';
+import { Context } from 'koa';
 
 
-export default async function(ctx) {
+export default async function(ctx: Context) {
   const { word } = ctx.params;
   const cached = await findCached(word);
   if (cached) {
@@ -25,7 +25,7 @@ export default async function(ctx) {
 }
 
 
-export async function getVdu(ctx) {
+export async function getVdu(ctx: Context) {
   const { word } = ctx.params;
   ctx.body = await vdu(word);
 }

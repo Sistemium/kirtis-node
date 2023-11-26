@@ -1,22 +1,26 @@
 import FormData from 'form-data';
-import axios from 'sistemium-data/src/util/axios';
+import axios from 'sistemium-data/lib/util/axios';
 import lo from 'lodash';
-// import strp from '../static/strp.json';
 
 const API_URL = 'https://kalbu.vdu.lt/ajax-call';
 
-export default async function (word) {
+export interface VDUAccentInfo {
+  accented: string[]
+  information: { mi: string }[]
+}
+
+export default async function (word: string): Promise<VDUAccentInfo[] | undefined> {
   const form = new FormData();
   form.append('word', word.toLocaleLowerCase());
   form.append('action', 'word_accent');
   const res = await axios.post(API_URL, form, { headers: form.getHeaders() });
   const { message } = res.data || {};
-  const { accentInfo } = message ? JSON.parse(message) : {};
+  const { accentInfo } = JSON.parse(message || '{}');
   return accentInfo;
 }
 
 
-export function accentInfoToStates(accentInfo) {
+export function accentInfoToStates(accentInfo: VDUAccentInfo[]) {
   if (!accentInfo) {
     return null;
   }
@@ -30,11 +34,7 @@ export function accentInfoToStates(accentInfo) {
 }
 
 
-/**
- *
- * @param {string} mi
- */
-export function miToState(mi) {
+export function miToState(mi: string) {
   if (!mi) {
     return { state: [] };
   }
@@ -52,14 +52,11 @@ export function miToState(mi) {
   };
 }
 
-function decodePart(part) {
+function decodePart(part: string) {
   return KEYS.get(part) || part;
 }
 
-/*
-
- */
-const KEYS = new Map([
+const KEYS = new Map<string, string>([
   // Lygis
   ['aukšt. l.', 'aukšt. l.'],
   ['aukšč. l.', 'aukšč. l.'],
