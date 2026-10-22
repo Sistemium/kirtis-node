@@ -18,9 +18,9 @@ npx ts-mocha test/testVdu.js -r dotenv-flow/config -g "should parse MI"   # sing
 ```
 
 Tests:
-- They need a reachable Redis and `REDIS_OFFLINE_QUEUE=1`.
-- `should find suggestions` asserts exact dictionary contents, so it only passes against Redis that holds the production word lists.
-- Known bug: the `before` hook waits for the Redis client's `connect` event. `sistemium-redis` connects on import, so with a fast (local) Redis the event has already fired and the hook times out. Every test then fails, including the pure `miToState` parsing test.
+- They need a reachable Redis (`REDIS_HOST`, `REDIS_DB`). `sistemium-redis` connects on import, so the `before` hook waits for the client to be `ready` and the `after` hook quits it. Without the `after` hook, mocha never exits.
+- `should parse MI` is pure parsing and passes against any Redis.
+- `should find suggestions` asserts exact dictionary contents, so it passes only against the Redis that holds the word lists. It returns `[]` against an empty local Redis, and also against `redis1a.sistemium.net` db 1 (the `nodemon.json` values, checked 2026-10-22). Where the dictionary lives now is not recorded in this repo.
 
 ## Configuration
 

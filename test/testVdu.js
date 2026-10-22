@@ -4,14 +4,23 @@ import { matchingWords } from '../src/services/caching';
 import { client } from 'sistemium-redis';
 
 /*
-Need to set env vars:
-REDIS_HOST and REDIS_OFFLINE_QUEUE=1
+Needs a reachable Redis: set REDIS_HOST (and REDIS_DB if not 0)
  */
 
 describe('VDU', function () {
 
+  // The client connects on import, so it may already be ready here
   before(function (done) {
-    client.on('connect', done);
+    if (client.ready) {
+      done();
+      return;
+    }
+    client.once('ready', () => done());
+  });
+
+  // An open connection keeps mocha from exiting
+  after(function (done) {
+    client.quit(() => done());
   });
 
   it('should parse MI', function () {
