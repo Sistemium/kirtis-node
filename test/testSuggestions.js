@@ -1,5 +1,4 @@
 import { expect } from 'chai';
-import { miToState } from '../src/services/vdu';
 import { matchingWords } from '../src/services/caching';
 import { client } from 'sistemium-redis';
 
@@ -7,7 +6,7 @@ import { client } from 'sistemium-redis';
 Needs a reachable Redis: set REDIS_HOST (and REDIS_DB if not 0)
  */
 
-describe('VDU', function () {
+describe('Suggestions', function () {
 
   // The client connects on import, so it may already be ready here
   before(function (done) {
@@ -21,16 +20,6 @@ describe('VDU', function () {
   // An open connection keeps mocha from exiting
   after(function (done) {
     client.quit(() => done());
-  });
-
-  it('should parse MI', function () {
-
-    INFO.forEach(([src, cls, state]) => {
-      const res = miToState(src);
-      expect(res.class).equal(cls);
-      expect(res.state).eql(state);
-    });
-
   });
 
   it('should find suggestions', async function () {
@@ -55,8 +44,3 @@ describe('VDU', function () {
   });
 
 });
-
-const INFO = [
-  ['vksm., es. l., 2 asm., dgs.', 'vksm.', ['esam.l.', 'IIasm.', 'dgsk.']],
-  ['dkt., vyr. g., dgs. vard.', 'dktv.', ['vyr.gim.', 'dgsk.', 'V.']],
-];

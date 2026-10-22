@@ -6,7 +6,7 @@
   "scripts": {
     "serve": "tsc-watch --onSuccess \"node -r dotenv-flow/config dist/api.js\"",
     "build": "rm -rf dist && tsc && cp package.json dist",
-    "test": "mocha -r ts-node/register/transpile-only -r dotenv-flow/config test/testVdu.js"
+    "test": "mocha -r ts-node/register/transpile-only -r dotenv-flow/config test/testSuggestions.js"
   },
   "keywords": [],
   "files": [
@@ -17,7 +17,6 @@
   "dependencies": {
     "@koa/router": "^15.7.0",
     "async": "^3.2.6",
-    "form-data": "^4.0.6",
     "koa": "^3.2.1",
     "koa-bodyparser": "^4.4.1",
     "koa-logger": "^4.0.0",

@@ -6,7 +6,7 @@ import { defaultRoutes } from 'sistemium-mongo/lib/api';
 import { map } from 'lodash';
 import assert from 'sistemium-mongo/lib/assert';
 import log from 'sistemium-debug';
-import krc, { getVdu } from './controllers/krc';
+import krc from './controllers/krc';
 import models, { connect } from './models';
 import suggestions from './controllers/suggestions';
 import shortenings from './controllers/shortenings';
@@ -19,7 +19,6 @@ const { debug } = log('api');
 defaultRoutes(router, map(models));
 
 router.get('/krc/:word', krc);
-router.get('/vdu/:word', getVdu);
 router.get('/zodynas/:word', suggestions);
 router.get('/strp', shortenings);
 

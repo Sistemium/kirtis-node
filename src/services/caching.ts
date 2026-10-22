@@ -3,37 +3,25 @@ import log from 'sistemium-debug';
 import lo, { upperFirst } from 'lodash';
 import { mapSeries } from 'async';
 import { hgetAsync } from 'sistemium-redis';
-import { AccentInfo } from './vdu';
 
 const WORDS_HASH = 'kirtis_found_words';
-const NOT_FOUND_SET = 'kirtis_not_found_words';
 const DICTIONARY_KEY = 'mixed_accent_words';
 const ACCENTUATED_WORDS = 'accentuated_words';
 
 const { debug } = log('caching');
+
+// One accented form of a word with its part of speech and grammatical features
+export interface AccentInfo {
+  word: string
+  class?: string
+  state: string[]
+}
 
 export async function findCached(word: string): Promise<AccentInfo[]> {
   const cached = await redis.hgetAsync(WORDS_HASH, normalizeKey(word));
   debug('findCached:', word, cached);
   const parsed: AccentInfo[] | undefined = cached && JSON.parse(cached);
   return lo.filter(parsed, ({ state }) => state?.length) as AccentInfo[];
-}
-
-export async function saveCached(word: string, data: any) {
-  const cached = JSON.stringify(data);
-  await redis.hsetAsync(WORDS_HASH, normalizeKey(word), cached);
-  debug('saveCached:', word, cached);
-}
-
-export async function saveNotFound(word: string) {
-  await redis.saddAsync(NOT_FOUND_SET, normalizeKey(word));
-  debug('saveNotFound:', word);
-}
-
-export async function isNotFound(word: string) {
-  const notFound = await redis.sIsMemberAsync(NOT_FOUND_SET, normalizeKey(word));
-  debug('findNotFound:', word, notFound);
-  return !!notFound;
 }
 
 function normalizeKey(text: string) {

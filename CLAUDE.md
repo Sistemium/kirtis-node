@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Backend API for kirtis.info, a Lithuanian word stress (accent) lookup. Koa + TypeScript. It gets accentuation and grammatical info from the VDU service (`https://kalbu.vdu.lt/ajax-call`) and caches the results in Redis. There is no README.
+Backend API for kirtis.info, a Lithuanian word stress (accent) lookup. Koa + TypeScript. There is no README.
+
+All data is served from Redis. Word lookups used to fetch accentuation and grammatical info from the VDU service (`https://kalbu.vdu.lt/ajax-call`) and cache it. That service stopped answering in October 2026, so the VDU client and its parser were removed. Lookups now return only words already in the cache. The old code is in git history: `src/services/vdu.ts` before the "Serve /krc from cache only" commit.
 
 ## Commands
 
@@ -13,8 +15,8 @@ npm ci
 npm run serve        # tsc-watch: recompiles src/ to dist/ and restarts `node -r dotenv-flow/config dist/api.js`
 npm run build        # wipes dist/, runs tsc, copies package.json into dist/ (dist/ is the deployable package)
 npx tsc --noEmit     # typecheck; there is no linter
-npm test             # mocha with ts-node (transpile-only) on test/testVdu.js
-npx mocha -r ts-node/register/transpile-only -r dotenv-flow/config test/testVdu.js -g "should parse MI"   # single test
+npm test             # mocha with ts-node (transpile-only) on test/testSuggestions.js
+npx mocha -r ts-node/register/transpile-only -r dotenv-flow/config test/testSuggestions.js -g "should find suggestions"   # single test
 ```
 
 Toolchain constraints:
@@ -23,8 +25,7 @@ Toolchain constraints:
 
 Tests:
 - They need a reachable Redis (`REDIS_HOST`, `REDIS_DB`). `sistemium-redis` connects on import, so the `before` hook waits for the client to be `ready` and the `after` hook quits it. Without the `after` hook, mocha never exits.
-- `should parse MI` is pure parsing and passes against any Redis.
-- `should find suggestions` asserts exact dictionary contents, so it passes only against the Redis that holds the word lists. It returns `[]` against an empty local Redis, and also against `redis1a.sistemium.net` db 1 (the `nodemon.json` values, checked 2026-10-22). Where the dictionary lives now is not recorded in this repo.
+- `should find suggestions`, the only test, asserts exact dictionary contents, so it passes only against the Redis that holds the word lists. It returns `[]` against an empty local Redis, and also against `redis1a.sistemium.net` db 1 (the `nodemon.json` values, checked 2026-10-22). Where the dictionary lives now is not recorded in this repo.
 
 ## Configuration
 
@@ -41,29 +42,21 @@ Environment is loaded with `dotenv-flow` (`.env`, `.env.local`, …). None is co
 
 Routes are defined in `src/api.ts`:
 
-- `GET /krc/:word`: the main lookup, in `src/controllers/krc.ts`. It checks the Redis cache, then the not-found set, then calls VDU, parses the result with `accentInfoToStates`, and caches it. A miss (empty VDU result, or nothing left after parsing) is added to the not-found set with no expiry. That word then returns 404 until it is removed from `kirtis_not_found_words` by hand.
-- `GET /vdu/:word`: raw VDU response, not cached (for debugging).
+- `GET /krc/:word`: the main lookup, in `src/controllers/krc.ts`. It returns the word's entries from `kirtis_found_words`, or 404 `Not a word` if there are none. Each entry is `{ word, class, state }`: an accented form, its part of speech, and its grammatical features.
 - `GET /zodynas/:word`: autocomplete. It runs `ZRANGEBYLEX` on `mixed_accent_words` over the prefix range `[word` … `[wordž` (limit 60), expands each hit through the `accentuated_words` hash, and sorts with a custom letter-by-letter `localeCompare`.
 - `GET /strp`: serves `src/static/strp.json`, which maps each abbreviation to its full Lithuanian name, grouped by grammatical category.
 
-Redis keys, all in `src/services/caching.ts`:
+Redis keys, all in `src/services/caching.ts`. The service only reads Redis; nothing in this repo writes to it any more.
 
-| Key | Type | Written by |
+| Key | Type | Used by |
 |---|---|---|
-| `kirtis_found_words` | hash: word → JSON `AccentInfo[]` | `/krc` |
-| `kirtis_not_found_words` | set | `/krc` |
-| `mixed_accent_words` | sorted set, queried by lex range | outside this repo (read-only here) |
-| `accentuated_words` | hash: plain word → comma-separated accented forms | outside this repo (read-only here) |
+| `kirtis_found_words` | hash: word → JSON `AccentInfo[]` | `/krc` (filled from VDU in the past) |
+| `mixed_accent_words` | sorted set, queried by lex range | `/zodynas` (filled outside this repo) |
+| `accentuated_words` | hash: plain word → comma-separated accented forms | `/zodynas` (filled outside this repo) |
 
-Cache keys for `/krc` are normalized with `upperFirst(lowercase(word))`. The VDU request sends the lowercased word.
+Cache keys for `/krc` are normalized with `upperFirst(lowercase(word))`. Entries without a `state` are filtered out when read. The old `kirtis_not_found_words` set may still exist in Redis, but it is no longer used.
 
-### VDU parsing (`src/services/vdu.ts`)
-
-- VDU returns `message` as a JSON string containing `accentInfo: [{ accented: string[], information: [{ mi }] }]`.
-- `mi` is a comma-separated morphological description. The first part is the part of speech, and the rest are features.
-- `miToState` translates VDU abbreviations into kirtis abbreviations through the `KEYS` map. A part with no direct match is split on spaces and each piece is mapped separately; for example `dgs. vard.` becomes `dgsk.`, `V.`.
-- Results are de-duplicated, and entries without a class or state are dropped.
-- Every output abbreviation in `KEYS` is a key in `strp.json`. When you add or change a mapping, keep the two files in sync.
+The `class` and `state` abbreviations stored in the cache are the keys of `strp.json`. If a new data source is added, map its grammatical tags to those same abbreviations. The old VDU mapping (`KEYS` in `vdu.ts`) in git history is a starting point.
 
 ### Models
 
@@ -73,7 +66,7 @@ Cache keys for `/krc` are normalized with `upperFirst(lowercase(word))`. The VDU
 
 The `sistemium-*` dependencies are Sistemium's own npm packages:
 - `sistemium-redis`: a promisified redis v3 client.
-- `sistemium-data` and `sistemium-data-mongo`: models and the Mongo adapter; HTTP calls use `sistemium-data/lib/util/axios`.
+- `sistemium-data` and `sistemium-data-mongo`: models and the Mongo adapter.
 - `sistemium-mongo`: provides `defaultRoutes` and `assert`.
 - `sistemium-debug`: logging.
 
