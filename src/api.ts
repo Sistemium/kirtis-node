@@ -10,6 +10,7 @@ import krc from './controllers/krc';
 import models, { connect } from './models';
 import suggestions from './controllers/suggestions';
 import shortenings from './controllers/shortenings';
+import { loadPhonologyEngine } from './phonology';
 
 const { PORT } = process.env;
 const app = new Koa();
@@ -35,6 +36,8 @@ if (require.main === module) {
 
   connect()
     // .then(archiveConnect)
+    // Load the stress engine before taking requests
+    .then(() => loadPhonologyEngine())
     .then(() => {
       app.listen(PORT);
       debug('PORT', PORT);

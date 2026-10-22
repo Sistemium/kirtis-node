@@ -2,6 +2,7 @@
 node_modules
 dist
 *.sh
+!phonology/build.sh
 pm2
 .run
 *.local
