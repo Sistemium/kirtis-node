@@ -58,6 +58,23 @@ Cache keys for `/krc` are normalized with `upperFirst(lowercase(word))`. Entries
 
 The `class` and `state` abbreviations stored in the cache are the keys of `strp.json`. If a new data source is added, map its grammatical tags to those same abbreviations. The old VDU mapping (`KEYS` in `vdu.ts`) in git history is a starting point.
 
+### Stress engine prototype (`phonology/`)
+
+This is a candidate replacement data source for words that are not in the cache. It is not connected to any route yet.
+
+It is the LIEPA word stress engine (C++, with stem dictionaries compiled in, BSD license) from [aleksas/phonology_engine](https://github.com/aleksas/phonology_engine), compiled to WebAssembly.
+
+- `npm run phonology:build` runs `phonology/build.sh`. It downloads a pinned commit, checks its SHA-256, and builds `phonology/engine/` with `em++`. It needs Emscripten (`brew install emscripten`). The output is committed, so running the engine does not need Emscripten.
+- `npm run phonology:demo -- word ...` prints the stress options for each word.
+- `npx tsc -p phonology/tsconfig.json` typechecks the folder. `phonology/` is outside `src/`, so `npm run build` does not include it. Its tsconfig lists `types: ["node"]`, because TypeScript 6 no longer loads `@types/*` automatically.
+
+Engine behavior that the wrapper (`phonology/index.ts`) relies on:
+- It only recognizes uppercase Windows-1257 text: lowercase words get no stress options. The wrapper uppercases the input and puts the original spelling back in the output.
+- Stress types: 0 is short (grave), 1 and 3 are acute, 2 is circumflex (tilde).
+- "Vocabulary" says which dictionary matched: 0 verb, 1 uninflected word, 2 noun or adjective.
+- For nouns and adjectives, `grammarRule = stemType << 8 | case`, where case 0–6 is singular and 7–13 is plural (nominative … vocative). The wrapper maps this to the case and number abbreviations from `strp.json`.
+- There is no part of speech beyond those three groups, no gender, and no tense, person or mood for verbs.
+
 ### Models
 
 `src/models/index.ts` sets up `KirtisModel` (`sistemium-data` with the Mongo store adapter). `defaultRoutes(router, map(models))` in `api.ts` would register REST routes for every model in the default export, but that export is empty, so there are no CRUD routes today.
