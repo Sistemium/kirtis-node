@@ -8,7 +8,8 @@
     "build": "rm -rf dist && tsc && cp package.json dist",
     "test": "mocha -r ts-node/register/transpile-only -r dotenv-flow/config test/testSuggestions.js",
     "phonology:build": "bash phonology/build.sh",
-    "phonology:demo": "ts-node -P phonology/tsconfig.json phonology/demo.ts"
+    "phonology:demo": "ts-node -P phonology/tsconfig.json phonology/demo.ts",
+    "phonology:compare": "ts-node -P phonology/tsconfig.json phonology/compare.ts"
   },
   "keywords": [],
   "files": [

@@ -25,7 +25,7 @@ Toolchain constraints:
 
 Tests:
 - They need a reachable Redis (`REDIS_HOST`, `REDIS_DB`). `sistemium-redis` connects on import, so the `before` hook waits for the client to be `ready` and the `after` hook quits it. Without the `after` hook, mocha never exits.
-- `should find suggestions`, the only test, asserts exact dictionary contents, so it passes only against the Redis that holds the word lists. It returns `[]` against an empty local Redis, and also against `redis1a.sistemium.net` db 1 (the `nodemon.json` values, checked 2026-10-22). Where the dictionary lives now is not recorded in this repo.
+- `should find suggestions`, the only test, asserts exact dictionary contents, so it passes only against the Redis that holds the word lists. That is the production Redis `redis1a.sistemium.net`, db 0, which also holds `kirtis_found_words` (`REDIS_HOST=redis1a.sistemium.net REDIS_DB=0 npm test`; the test only reads). Against an empty local Redis it returns `[]`. The db 1 in `nodemon.json` is empty.
 
 ## Configuration
 
@@ -66,6 +66,7 @@ It is the LIEPA word stress engine (C++, with stem dictionaries compiled in, BSD
 
 - `npm run phonology:build` runs `phonology/build.sh`. It downloads a pinned commit, checks its SHA-256, and builds `phonology/engine/` with `em++`. It needs Emscripten (`brew install emscripten`). The output is committed, so running the engine does not need Emscripten.
 - `npm run phonology:demo -- word ...` prints the stress options for each word.
+- `REDIS_HOST=redis1a.sistemium.net REDIS_DB=0 npm run phonology:compare -- [limit] [mismatches.tsv]` compares the engine with the VDU answers in `kirtis_found_words`. It only reads Redis, with `HSCAN`. 50,000 words take about 10 seconds.
 - `npx tsc -p phonology/tsconfig.json` typechecks the folder. `phonology/` is outside `src/`, so `npm run build` does not include it. Its tsconfig lists `types: ["node"]`, because TypeScript 6 no longer loads `@types/*` automatically.
 
 Engine behavior that the wrapper (`phonology/index.ts`) relies on:
@@ -74,6 +75,14 @@ Engine behavior that the wrapper (`phonology/index.ts`) relies on:
 - "Vocabulary" says which dictionary matched: 0 verb, 1 uninflected word, 2 noun or adjective.
 - For nouns and adjectives, `grammarRule = stemType << 8 | case`, where case 0–6 is singular and 7–13 is plural (nominative … vocative). The wrapper maps this to the case and number abbreviations from `strp.json`.
 - There is no part of speech beyond those three groups, no gender, and no tense, person or mood for verbs.
+- The wrapper follows Lithuanian spelling: an acute on i or u in a mixed diphthong (il, im, in, ir, ul, um, un, ur) or in "ui" is written as a grave (`dùrpių`, `mùistė`), as VDU does. The option's `accent` field still says `acute`.
+
+Comparison with the cached VDU answers (2026-10-22, 50,000 words from `kirtis_found_words`, of which 44,434 had a VDU stress):
+- The engine stresses 93% of the words. Its misses are mostly derived adjectives (`-inis`), abstract nouns (`-umas`), diminutives, and foreign or scientific terms.
+- When it answers, its picked form is one of VDU's forms 97% of the time, and the stressed syllable is right 98% of the time. Case and number agree with VDU 97% of the time.
+- It rarely lists every variant: 10% of words have several VDU stresses, and the engine finds all of them for only 17%.
+- Of 4,864 typo-like entries that VDU could not stress, the engine stressed only 5%.
+- These words are already in the cache. Words missing from it are rarer, so accuracy on them is probably lower.
 
 ### Models
 

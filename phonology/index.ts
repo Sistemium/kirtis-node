@@ -209,8 +209,18 @@ function withSpelling(word: WordStress, spelling: string): WordStress {
 }
 
 function addAccent(word: string, letterIndex: number, accent: Accent): string {
-  return (word.slice(0, letterIndex + 1) + ACCENT_MARKS[accent] + word.slice(letterIndex + 1))
+  return (word.slice(0, letterIndex + 1) + accentMark(word, letterIndex, accent) + word.slice(letterIndex + 1))
     .normalize('NFC');
+}
+
+// Lithuanian spelling writes an acute on i or u of a mixed diphthong (il, im, in, ir, ul, um, un, ur)
+// or of "ui" with a grave: pìrštas, dùrpių, mùistė
+function accentMark(word: string, letterIndex: number, accent: Accent): string {
+  const letter = word.charAt(letterIndex).toLocaleLowerCase('lt');
+  const next = word.charAt(letterIndex + 1).toLocaleLowerCase('lt');
+  const inMixedDiphthong = (letter === 'i' || letter === 'u') && next !== '' && 'lmnr'.includes(next);
+  const inUi = letter === 'u' && next === 'i';
+  return accent === 'acute' && (inMixedDiphthong || inUi) ? ACCENT_MARKS.grave : ACCENT_MARKS[accent];
 }
 
 function decodeOption(
