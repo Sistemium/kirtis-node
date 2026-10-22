@@ -2,12 +2,13 @@
 // Usage: REDIS_HOST=... REDIS_DB=0 npm run phonology:compare -- [limit] [mismatches.tsv]
 import fs from 'fs';
 import { client } from 'sistemium-redis';
-import { loadPhonologyEngine, PhonologyEngine, WordStress } from './index';
+import { loadPhonologyEngine, PhonologyEngine, WordStress } from '../src/phonology';
+import { optionEntries } from '../src/phonology/grammar';
 
 const WORDS_HASH = 'kirtis_found_words';
-const CASES = new Set(['V.', 'K.', 'N.', 'G.', 'Įn.', 'Vt.', 'Š.']);
-const NUMBERS = new Set(['vnsk.', 'dgsk.']);
-const ACCENTS = /[̀́̃]/g;
+// VDU sets these tags inconsistently, so the state check ignores them
+const LOOSE_TAGS = new Set(['nesngr.', 'sngr.', 'neįvardž.', 'įvardž.']);
+const ACCENTS = /[\u0300\u0301\u0303]/g;
 const VOWELS = /[aąeęėiįyouųū]+/g;
 
 interface VduEntry {
@@ -48,10 +49,8 @@ function stressedSyllable(form: string): number {
   return count;
 }
 
-function caseNumber(state: string[] = []): string | undefined {
-  const caseName = state.find((s) => CASES.has(s));
-  const number = state.find((s) => NUMBERS.has(s));
-  return caseName && number ? `${caseName} ${number}` : undefined;
+function strictTags(state: string[] = []): string[] {
+  return state.filter((tag) => !LOOSE_TAGS.has(tag));
 }
 
 function add(tally: Tally, name: string, by = 1) {
@@ -102,6 +101,7 @@ async function main() {
   const byClass: Tally = {};
   const byClassFound: Tally = {};
   const grammar: Tally = {};
+  const grammarChecked: Tally = {};
 
   for await (const [key, entries] of scanWords(limit)) {
     const word = lower(key);
@@ -153,19 +153,25 @@ async function main() {
       if (engineForms.has(form)) add(byClassFound, cls);
     }
 
-    // Grammar: for engine nominal options whose form VDU also has, does VDU list the same case and number?
+    // Grammar of the /krc entries, for options whose form VDU also has:
+    // same class, and a state that VDU's entries for that form and class do not contradict
     for (const option of options) {
       const form = lower(option.stressed);
-      if (option.group !== 'nominal' || !vduForms.has(form)) continue;
-      add(grammar, 'checked');
-      const engineCase = option.state.join(' ');
-      const vduCases = new Set(accented.filter((e) => lower(e.word) === form).map((e) => caseNumber(e.state)));
-      if (vduCases.has(engineCase)) add(grammar, 'agree');
+      const sameForm = accented.filter((e) => lower(e.word) === form);
+      if (!sameForm.length) continue;
+      for (const entry of optionEntries(option)) {
+        const cls = entry.class || '-';
+        add(grammarChecked, cls);
+        const sameClass = sameForm.filter((e) => e.class === entry.class);
+        if (sameClass.length) add(grammar, `${cls} class`);
+        const tags = strictTags(entry.state);
+        if (sameClass.some((e) => tags.every((tag) => strictTags(e.state).includes(tag)))) add(grammar, `${cls} state`);
+      }
     }
 
     if (mismatchFile && !(selected && vduForms.has(selected))) {
       const vdu = accented.map((e) => `${lower(e.word)} ${e.class || ''}`).join(', ');
-      const eng = options.map((o) => `${lower(o.stressed)} ${o.group}${o.state.length ? ` ${o.state.join(' ')}` : ''}`).join(', ');
+      const eng = options.flatMap(optionEntries).map((e) => `${lower(e.word)} ${e.class} ${e.state.join(' ')}`).join(', ');
       mismatches.push([word, selected || '-', vdu, eng || '-'].join('\t'));
     }
   }
@@ -182,7 +188,15 @@ async function main() {
   console.log(`  every engine form is in VDU:  ${percent(words.allEngineCorrect || 0, withOptions)}`);
   console.log(`  every VDU form found:         ${percent(words.allVduFound || 0, withOptions)}`);
   console.log(`Words with several VDU stresses: ${words.vduHomographs || 0}, all of them found: ${percent(words.vduHomographsAllFound || 0, words.vduHomographs || 0)}`);
-  console.log(`Case and number agree with VDU (nominal options with a VDU form): ${percent(grammar.agree || 0, grammar.checked || 0)} of ${grammar.checked || 0}`);
+  console.log('Entries whose form VDU also has, by engine class (state ignores nesngr./neįvardž.):');
+  console.log('  class        entries  class ok  state not contradicted');
+  Object.entries(grammarChecked)
+    .sort(([, a], [, b]) => b - a)
+    .forEach(([cls, count]) => {
+      const classOk = percent(grammar[`${cls} class`] || 0, count);
+      const stateOk = percent(grammar[`${cls} state`] || 0, count);
+      console.log(`  ${cls.padEnd(12)} ${String(count).padStart(7)}  ${classOk.padStart(8)}  ${stateOk.padStart(8)}`);
+    });
   console.log('VDU forms found by the engine, by VDU part of speech:');
   Object.entries(byClass)
     .sort(([, a], [, b]) => b - a)

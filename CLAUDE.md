@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Backend API for kirtis.info, a Lithuanian word stress (accent) lookup. Koa + TypeScript. There is no README.
 
-All data is served from Redis. Word lookups used to fetch accentuation and grammatical info from the VDU service (`https://kalbu.vdu.lt/ajax-call`) and cache it. That service stopped answering in October 2026, so the VDU client and its parser were removed. Lookups now return only words already in the cache. The old code is in git history: `src/services/vdu.ts` before the "Serve /krc from cache only" commit.
+Word lookups used to fetch accentuation and grammatical info from the VDU service (`https://kalbu.vdu.lt/ajax-call`) and cache it in Redis. That service stopped answering in October 2026, so the VDU client and its parser were removed; the old code is in git history (`src/services/vdu.ts` before the "Serve /krc from cache only" commit). Lookups now return the cached VDU answer when there is one, and otherwise stress the word with the LIEPA engine bundled in `src/phonology` (see below).
 
 ## Commands
 
@@ -15,8 +15,8 @@ npm ci
 npm run serve        # tsc-watch: recompiles src/ to dist/ and restarts `node -r dotenv-flow/config dist/api.js`
 npm run build        # wipes dist/, runs tsc, copies package.json into dist/ (dist/ is the deployable package)
 npx tsc --noEmit     # typecheck; there is no linter
-npm test             # mocha with ts-node (transpile-only) on test/testSuggestions.js
-npx mocha -r ts-node/register/transpile-only -r dotenv-flow/config test/testSuggestions.js -g "should find suggestions"   # single test
+npm test             # mocha with ts-node (transpile-only) on test/testLiepa.js and test/testSuggestions.js
+npx mocha -r ts-node/register/transpile-only -r dotenv-flow/config test/testLiepa.js -g "homograph"   # single test
 ```
 
 Toolchain constraints:
@@ -24,8 +24,9 @@ Toolchain constraints:
 - Tests use mocha directly with `ts-node/register/transpile-only` instead of `ts-mocha`. ts-mocha only supports mocha up to 11 and bundles the outdated ts-node 7.
 
 Tests:
-- They need a reachable Redis (`REDIS_HOST`, `REDIS_DB`). `sistemium-redis` connects on import, so the `before` hook waits for the client to be `ready` and the `after` hook quits it. Without the `after` hook, mocha never exits.
-- `should find suggestions`, the only test, asserts exact dictionary contents, so it passes only against the Redis that holds the word lists. That is the production Redis `redis1a.sistemium.net`, db 0, which also holds `kirtis_found_words` (`REDIS_HOST=redis1a.sistemium.net REDIS_DB=0 npm test`; the test only reads). Against an empty local Redis it returns `[]`. The db 1 in `nodemon.json` is empty.
+- `test/testLiepa.js` checks the stress engine and the class/state mapping. It needs no Redis.
+- `test/testSuggestions.js` needs a reachable Redis (`REDIS_HOST`, `REDIS_DB`). `sistemium-redis` connects on import, so the `before` hook waits for the client to be `ready` and the `after` hook quits it. Without the `after` hook, mocha never exits.
+- `should find suggestions` asserts exact dictionary contents, so it passes only against the Redis that holds the word lists. That is the production Redis `redis1a.sistemium.net`, db 0, which also holds `kirtis_found_words` (`REDIS_HOST=redis1a.sistemium.net REDIS_DB=0 npm test`; the test only reads). Against an empty local Redis it returns `[]`. The db 1 in `nodemon.json` is empty.
 
 ## Configuration
 
@@ -42,7 +43,7 @@ Environment is loaded with `dotenv-flow` (`.env`, `.env.local`, …). None is co
 
 Routes are defined in `src/api.ts`:
 
-- `GET /krc/:word`: the main lookup, in `src/controllers/krc.ts`. It returns the word's entries from `kirtis_found_words`, or 404 `Not a word` if there are none. Each entry is `{ word, class, state }`: an accented form, its part of speech, and its grammatical features.
+- `GET /krc/:word`: the main lookup, in `src/controllers/krc.ts`. Each entry is `{ word, class, state }`: an accented form, its part of speech, and its grammatical features. It returns the word's cached VDU entries from `kirtis_found_words`. If there are none, it asks the LIEPA engine (`src/services/liepa.ts`); those entries also carry `source: "liepa"` and are not written to Redis. It returns 404 `Not a word` if neither has the word.
 - `GET /zodynas/:word`: autocomplete. It runs `ZRANGEBYLEX` on `mixed_accent_words` over the prefix range `[word` … `[wordž` (limit 60), expands each hit through the `accentuated_words` hash, and sorts with a custom letter-by-letter `localeCompare`.
 - `GET /strp`: serves `src/static/strp.json`, which maps each abbreviation to its full Lithuanian name, grouped by grammatical category.
 
@@ -56,20 +57,28 @@ Redis keys, all in `src/services/caching.ts`. The service only reads Redis; noth
 
 Cache keys for `/krc` are normalized with `upperFirst(lowercase(word))`. Entries without a `state` are filtered out when read. The old `kirtis_not_found_words` set may still exist in Redis, but it is no longer used.
 
-The `class` and `state` abbreviations stored in the cache are the keys of `strp.json`. If a new data source is added, map its grammatical tags to those same abbreviations. The old VDU mapping (`KEYS` in `vdu.ts`) in git history is a starting point.
+The `class` and `state` abbreviations are the keys of `strp.json`, both for cached VDU entries and for engine entries. The frontend (Sistemium/krc-angular) loads `/api/strp` for tooltips, so a new abbreviation needs a `strp.json` key. `nekait.` ("Nekaitomas žodis") was added for the engine's uninflected words. The frontend shows `(class)` next to each word, so every entry needs a class.
 
-### Stress engine prototype (`phonology/`)
+### Stress engine (`src/phonology/`, tooling in `phonology/`)
 
-This is a candidate replacement data source for words that are not in the cache. It is not connected to any route yet.
+It is the LIEPA word stress engine (C++, with stem dictionaries compiled in, BSD license) from [aleksas/phonology_engine](https://github.com/aleksas/phonology_engine), compiled to WebAssembly. `/krc` uses it for words that are not in the cache.
 
-It is the LIEPA word stress engine (C++, with stem dictionaries compiled in, BSD license) from [aleksas/phonology_engine](https://github.com/aleksas/phonology_engine), compiled to WebAssembly.
+- `src/phonology/index.ts` wraps the engine and returns its raw stress options.
+- `src/phonology/grammar.ts` turns the options into kirtis entries (class and state).
+- `src/services/liepa.ts` is what `/krc` calls. It rejects input longer than 40 characters or with spaces, because the engine has fixed buffers sized for 50-letter words. It strips stress marks a user may paste, and returns `[]` for characters outside Windows-1257.
+- `src/phonology/engine/` holds generated files and is committed: `phonology-engine.js` (Emscripten `SINGLE_FILE` build with the `.wasm` embedded, so `tsc` copies it into `dist/` through `allowJs`), `verb-endings.json` and the upstream `LICENSE`.
+- `npm run phonology:build` runs `phonology/build.sh`. It downloads a pinned commit, checks its SHA-256, extracts the verb endings table with `phonology/parse-verb-endings.js`, and builds the engine with `em++`. It needs Emscripten (`brew install emscripten`). Nothing else needs it.
+- `npm run phonology:demo -- word ...` prints what `/krc` would return from the engine.
+- `REDIS_HOST=redis1a.sistemium.net REDIS_DB=0 npm run phonology:compare -- [limit] [mismatches.tsv]` compares the engine's stress, class and state with the VDU answers in `kirtis_found_words`. It only reads Redis, with `HSCAN`. 50,000 words take about 10 seconds.
+- `npx tsc -p phonology/tsconfig.json` typechecks the tooling. Its tsconfig lists `types: ["node"]`, because TypeScript 6 no longer loads `@types/*` automatically; in `src/` the Node types arrive through `@types/koa`.
 
-- `npm run phonology:build` runs `phonology/build.sh`. It downloads a pinned commit, checks its SHA-256, and builds `phonology/engine/` with `em++`. It needs Emscripten (`brew install emscripten`). The output is committed, so running the engine does not need Emscripten.
-- `npm run phonology:demo -- word ...` prints the stress options for each word.
-- `REDIS_HOST=redis1a.sistemium.net REDIS_DB=0 npm run phonology:compare -- [limit] [mismatches.tsv]` compares the engine with the VDU answers in `kirtis_found_words`. It only reads Redis, with `HSCAN`. 50,000 words take about 10 seconds.
-- `npx tsc -p phonology/tsconfig.json` typechecks the folder. `phonology/` is outside `src/`, so `npm run build` does not include it. Its tsconfig lists `types: ["node"]`, because TypeScript 6 no longer loads `@types/*` automatically.
+How `grammar.ts` derives class and state:
+- Nouns, adjectives, numerals and pronouns get their class from the engine's stem type (`grammarRule >> 8`). `Kircdb.cpp` lists the noun and adjective stem types, including the masculine and feminine noun stems. The numeral (44–79) and pronoun (80–99) ranges come from comparing with VDU. State: nouns get gender, number and case; the others get number and case only.
+- For verb forms, `grammarRule` is the row of the verb endings table (`GalMasV` in `vgal.h`, extracted to `verb-endings.json`). Each row gives part of speech (verb, participle, `padlv.`, `psdlv.`, infinitive, `būdn.`), tense, mood or voice, person or case, number, gender, pronominal form and reflexivity. "Singular and plural" or "masculine or feminine" rows become one entry for each value, as VDU does. Only the conditional (`Tar.`) and imperative (`Liep.`) moods are tagged, because VDU leaves the indicative out.
+- Uninflected words get class `nekait.` and an empty state.
+- Entries list the engine's picked option first, without duplicates.
 
-Engine behavior that the wrapper (`phonology/index.ts`) relies on:
+Engine behavior that the wrapper relies on:
 - It only recognizes uppercase Windows-1257 text: lowercase words get no stress options. The wrapper uppercases the input and puts the original spelling back in the output.
 - Stress types: 0 is short (grave), 1 and 3 are acute, 2 is circumflex (tilde).
 - "Vocabulary" says which dictionary matched: 0 verb, 1 uninflected word, 2 noun or adjective.
@@ -79,7 +88,8 @@ Engine behavior that the wrapper (`phonology/index.ts`) relies on:
 
 Comparison with the cached VDU answers (2026-10-22, 50,000 words from `kirtis_found_words`, of which 44,434 had a VDU stress):
 - The engine stresses 93% of the words. Its misses are mostly derived adjectives (`-inis`), abstract nouns (`-umas`), diminutives, and foreign or scientific terms.
-- When it answers, its picked form is one of VDU's forms 97% of the time, and the stressed syllable is right 98% of the time. Case and number agree with VDU 97% of the time.
+- When it answers, its picked form is one of VDU's forms 97% of the time, and the stressed syllable is right 98% of the time.
+- For entries whose form VDU also has, the class matches VDU 98% of the time. The state does not contradict VDU for 98% of nouns, 97% of participles, 93% of adjectives and 79% of verbs (ignoring `nesngr.`/`neįvardž.`, which VDU sets inconsistently). Nearly all verb differences are format: VDU usually omits `Tar.`/`Liep.` and sometimes the number of 3rd-person forms. Real tense or person contradictions are about 0.2%.
 - It rarely lists every variant: 10% of words have several VDU stresses, and the engine finds all of them for only 17%.
 - Of 4,864 typo-like entries that VDU could not stress, the engine stressed only 5%.
 - These words are already in the cache. Words missing from it are rarer, so accuracy on them is probably lower.

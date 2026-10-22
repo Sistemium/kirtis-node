@@ -36,11 +36,9 @@ export interface StressOption {
   letterIndex: number
   accent: Accent
   group: WordGroup
-  // Raw engine value; for nominal words it encodes stem type and case
+  // Raw engine value, decoded by grammar.ts: the verb endings row for verbs,
+  // stemType << 8 | case for nominal words, a word list index for uninflected words
   grammarRule: number
-  // kirtis abbreviations (keys of src/static/strp.json): case and number, nominal words only
-  state: string[]
-  stemType?: number
 }
 
 export interface WordStress {
@@ -55,12 +53,11 @@ export interface WordStress {
 // Engine stress types: 0 short (grave), 1 acute, 2 circumflex (tilde), 3 acute
 const ACCENTS: Accent[] = ['grave', 'acute', 'circumflex', 'acute'];
 const ACCENT_MARKS: Record<Accent, string> = {
-  grave: '̀',
-  acute: '́',
-  circumflex: '̃',
+  grave: '\u0300',
+  acute: '\u0301',
+  circumflex: '\u0303',
 };
 const GROUPS: WordGroup[] = ['verb', 'uninflected', 'nominal'];
-const CASES = ['V.', 'K.', 'N.', 'G.', 'Įn.', 'Vt.', 'Š.'];
 
 // The engine works with Windows-1257 strings
 const decoder = new TextDecoder('windows-1257');
@@ -229,14 +226,7 @@ function decodeOption(
   const accent = ACCENTS[stressType] || 'acute';
   const group = GROUPS[vocabulary] || 'uninflected';
   const stressed = addAccent(word, letterIndex, accent);
-  const option: StressOption = { stressed, letterIndex, accent, group, grammarRule, state: [] };
-  if (group === 'nominal') {
-    const stemType = grammarRule >> 8;
-    const caseIndex = grammarRule & 0xff;
-    option.stemType = stemType;
-    option.state = [CASES[caseIndex % 7], caseIndex < 7 ? 'vnsk.' : 'dgsk.'];
-  }
-  return option;
+  return { stressed, letterIndex, accent, group, grammarRule };
 }
 
 let loading: Promise<PhonologyEngine> | undefined;

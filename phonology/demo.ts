@@ -1,32 +1,24 @@
-// Prints what the stress engine returns for some words: npm run phonology:demo -- [word ...]
-import { loadPhonologyEngine } from './index';
+// Prints what /krc would return from the stress engine: npm run phonology:demo -- [word ...]
+import { stressWithLiepa } from '../src/services/liepa';
 
 const SAMPLE = [
   // README examples of phonology_engine: kačiùkas, pérbėgo, kẽlią
   'kačiukas', 'perbėgo', 'kelią',
   // Words with more than one stress (homographs)
-  'antis', 'kasa', 'pilis', 'dvaras',
-  // Everyday words in different forms
-  'mama', 'mamos', 'galva', 'rankomis', 'kalbėti', 'kalbėjome', 'gražus', 'gražiausia',
-  'gerai', 'ačiū', 'universitetas', 'kompiuteris', 'Vilnius',
+  'antis', 'kasa', 'pilis',
+  // Different parts of speech and forms
+  'mamos', 'rankomis', 'kalbėjome', 'dirbk', 'skaudinama', 'gražus', 'ačiū', 'Vilnius',
   // Not a word
   'qqqzzzx',
 ];
 
 async function main() {
-  const engine = await loadPhonologyEngine();
   const words = process.argv.slice(2).length ? process.argv.slice(2) : SAMPLE;
-  for (const input of words) {
-    const result = engine.stressWord(input);
-    if (!result || !result.options.length) {
-      console.log(`${input}: no stress`);
-      continue;
-    }
-    const picked = result.selected === null ? undefined : result.options[result.selected];
-    console.log(`${input} → ${picked?.stressed}`);
-    for (const option of result.options) {
-      const grammar = option.state.length ? ` ${option.state.join(' ')}` : '';
-      console.log(`    ${option.stressed}  ${option.accent}, ${option.group}${grammar}`);
+  for (const word of words) {
+    const entries = await stressWithLiepa(word);
+    console.log(entries.length ? word : `${word}: no stress`);
+    for (const entry of entries) {
+      console.log(`    ${entry.word}  ${entry.class}  ${entry.state.join(' ')}`);
     }
   }
 }

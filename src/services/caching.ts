@@ -15,6 +15,8 @@ export interface AccentInfo {
   word: string
   class?: string
   state: string[]
+  // Set to 'liepa' when the stress engine produced the entry; cached VDU entries have none
+  source?: string
 }
 
 export async function findCached(word: string): Promise<AccentInfo[]> {
