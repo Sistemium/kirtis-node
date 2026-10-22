@@ -13,9 +13,13 @@ npm ci
 npm run serve        # tsc-watch: recompiles src/ to dist/ and restarts `node -r dotenv-flow/config dist/api.js`
 npm run build        # wipes dist/, runs tsc, copies package.json into dist/ (dist/ is the deployable package)
 npx tsc --noEmit     # typecheck; there is no linter
-npm test             # ts-mocha test/testVdu.js
-npx ts-mocha test/testVdu.js -r dotenv-flow/config -g "should parse MI"   # single test
+npm test             # mocha with ts-node (transpile-only) on test/testVdu.js
+npx mocha -r ts-node/register/transpile-only -r dotenv-flow/config test/testVdu.js -g "should parse MI"   # single test
 ```
+
+Toolchain constraints:
+- TypeScript is pinned to 6.x. TypeScript 7 (the native Go compiler) ships no JS compiler API, and ts-node needs one.
+- Tests use mocha directly with `ts-node/register/transpile-only` instead of `ts-mocha`. ts-mocha only supports mocha up to 11 and bundles the outdated ts-node 7.
 
 Tests:
 - They need a reachable Redis (`REDIS_HOST`, `REDIS_DB`). `sistemium-redis` connects on import, so the `before` hook waits for the client to be `ready` and the `after` hook quits it. Without the `after` hook, mocha never exits.
