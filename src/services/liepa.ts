@@ -4,17 +4,13 @@ import log from 'sistemium-debug';
 import type { AccentInfo } from './caching';
 import { loadPhonologyEngine } from '../phonology';
 import { wordEntries } from '../phonology/grammar';
-
-// The engine has fixed buffers sized for 50-letter words; the frontend allows 30
-const MAX_WORD_LENGTH = 40;
-// Stress marks a user may paste with the word; the engine only knows plain letters
-const STRESS_MARKS = /[\u0300\u0301\u0303]/g;
+import { plainWord } from './words';
 
 const { debug } = log('liepa');
 
 export async function stressWithLiepa(word: string): Promise<AccentInfo[]> {
-  const text = word.trim().normalize('NFD').replace(STRESS_MARKS, '').normalize('NFC');
-  if (!text || text.length > MAX_WORD_LENGTH || /\s/.test(text)) {
+  const text = plainWord(word);
+  if (!text) {
     return [];
   }
   const engine = await loadPhonologyEngine();

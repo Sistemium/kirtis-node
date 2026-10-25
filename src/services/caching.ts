@@ -19,11 +19,20 @@ export interface AccentInfo {
   source?: string
 }
 
+// Entries need a class; adverbs, particles and the like legitimately have an empty state.
+// Entries with no class are words VDU could not stress.
 export async function findCached(word: string): Promise<AccentInfo[]> {
   const cached = await redis.hgetAsync(WORDS_HASH, normalizeKey(word));
   debug('findCached:', word, cached);
   const parsed: AccentInfo[] | undefined = cached && JSON.parse(cached);
-  return lo.filter(parsed, ({ state }) => state?.length) as AccentInfo[];
+  return lo.filter(parsed, (entry) => !!entry.class)
+    .map((entry) => ({ ...entry, state: entry.state || [] }));
+}
+
+// Stores VDU entries for a word; engine entries are not cached
+export async function saveCached(word: string, entries: AccentInfo[]) {
+  await redis.hsetAsync(WORDS_HASH, normalizeKey(word), JSON.stringify(entries));
+  debug('saveCached:', word, entries.length);
 }
 
 function normalizeKey(text: string) {
