@@ -44,11 +44,13 @@ Environment is loaded with `dotenv-flow` (`.env`, `.env.local`, …). None is co
 Routes are defined in `src/api.ts`:
 
 - `GET /krc/:word`: the main lookup, in `src/controllers/krc.ts`. Each entry is `{ word, class, state }`: an accented form, its part of speech, and its grammatical features. The word is first cleaned up by `plainWord` (`src/services/words.ts`): trimmed, pasted stress marks stripped, one word of at most 40 characters. Then the sources are tried in order:
-  1. the cached VDU entries in `kirtis_found_words`;
+  1. the cached entries in `kirtis_found_words`, if they are a VDU answer;
   2. VDU itself (`src/services/vdu.ts`), whose answer is saved to the cache;
-  3. the LIEPA engine (`src/services/liepa.ts`), when VDU cannot answer or does not know the word. Its entries carry `source: "liepa"` and are not cached.
+  3. the LIEPA engine (`src/services/liepa.ts`), when VDU cannot answer or does not know the word.
 
-  It returns 404 `Not a word` if none of them has the word. Nothing records "not found", so a word VDU does not know is asked again next time.
+  Engine entries carry `source: "liepa"` and are cached too, but only as a provisional answer. While a word's cache value holds engine entries, every request asks VDU first, and a VDU answer replaces them. Otherwise the engine answer is served, and rewritten to the cache only when it changed.
+
+  It returns 404 `Not a word` if none of them has the word. Nothing records "not found", so a word that VDU does not know is asked about again next time.
 - VDU client details:
   - It uses Node's built-in `fetch` with a 3-second timeout.
   - After any failure (network error, timeout, unexpected body) it skips VDU for 60 seconds, so lookups go straight to the engine during an outage.
@@ -58,11 +60,11 @@ Routes are defined in `src/api.ts`:
 - `GET /zodynas/:word`: autocomplete. It runs `ZRANGEBYLEX` on `mixed_accent_words` over the prefix range `[word` … `[wordž` (limit 60), expands each hit through the `accentuated_words` hash, and sorts with a custom letter-by-letter `localeCompare`.
 - `GET /strp`: serves `src/static/strp.json`, which maps each abbreviation to its full Lithuanian name, grouped by grammatical category.
 
-Redis keys, all in `src/services/caching.ts`. The service writes only VDU answers, to `kirtis_found_words`.
+Redis keys, all in `src/services/caching.ts`. The service writes only `kirtis_found_words`. A value there is either a VDU answer (entries without `source`, including all entries from before October 2026) or an engine answer (entries with `source: "liepa"`), never a mix. Each write replaces the whole value.
 
 | Key | Type | Used by |
 |---|---|---|
-| `kirtis_found_words` | hash: word → JSON `AccentInfo[]` | `/krc`, written with VDU answers |
+| `kirtis_found_words` | hash: word → JSON `AccentInfo[]` | `/krc`, written with VDU and engine answers |
 | `mixed_accent_words` | sorted set, queried by lex range | `/zodynas` (filled outside this repo) |
 | `accentuated_words` | hash: plain word → comma-separated accented forms | `/zodynas` (filled outside this repo) |
 
@@ -76,7 +78,7 @@ The `class` and `state` abbreviations are the keys of `strp.json`, both for cach
 
 ### Stress engine (`src/phonology/`, tooling in `phonology/`)
 
-It is the LIEPA word stress engine (C++, with stem dictionaries compiled in, BSD license) from [aleksas/phonology_engine](https://github.com/aleksas/phonology_engine), compiled to WebAssembly. `/krc` uses it for words that are neither in the cache nor answered by VDU.
+It is the LIEPA word stress engine (C++, with stem dictionaries compiled in, BSD license) from [aleksas/phonology_engine](https://github.com/aleksas/phonology_engine), compiled to WebAssembly. `/krc` uses it for words that VDU cannot answer or does not know.
 
 - `src/phonology/index.ts` wraps the engine and returns its raw stress options.
 - `src/phonology/grammar.ts` turns the options into kirtis entries (class and state).
@@ -84,7 +86,7 @@ It is the LIEPA word stress engine (C++, with stem dictionaries compiled in, BSD
 - `src/phonology/engine/` holds generated files and is committed: `phonology-engine.js` (Emscripten `SINGLE_FILE` build with the `.wasm` embedded, so `tsc` copies it into `dist/` through `allowJs`), `verb-endings.json` and the upstream `LICENSE`.
 - `npm run phonology:build` runs `phonology/build.sh`. It downloads a pinned commit, checks its SHA-256, extracts the verb endings table with `phonology/parse-verb-endings.js`, and builds the engine with `em++`. It needs Emscripten (`brew install emscripten`). Nothing else needs it.
 - `npm run phonology:demo -- word ...` prints what `/krc` would return from the engine.
-- `REDIS_HOST=redis1a.sistemium.net REDIS_DB=0 npm run phonology:compare -- [limit] [mismatches.tsv]` compares the engine's stress, class and state with the VDU answers in `kirtis_found_words`. It only reads Redis, with `HSCAN`. 50,000 words take about 10 seconds.
+- `REDIS_HOST=redis1a.sistemium.net REDIS_DB=0 npm run phonology:compare -- [limit] [mismatches.tsv]` compares the engine's stress, class and state with the VDU answers in `kirtis_found_words`. It skips words whose cached value is an engine answer, and it only reads Redis, with `HSCAN`. 50,000 words take about 10 seconds.
 - `npx tsc -p phonology/tsconfig.json` typechecks the tooling. Its tsconfig lists `types: ["node"]`, because TypeScript 6 no longer loads `@types/*` automatically; in `src/` the Node types arrive through `@types/koa`.
 
 How `grammar.ts` derives class and state:
