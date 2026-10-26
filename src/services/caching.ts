@@ -29,7 +29,7 @@ export async function findCached(word: string): Promise<AccentInfo[]> {
     .map((entry) => ({ ...entry, state: entry.state || [] }));
 }
 
-// Stores VDU entries for a word; engine entries are not cached
+// Stores the entries for a word, replacing what was there: VDU entries, or engine entries with source "liepa"
 export async function saveCached(word: string, entries: AccentInfo[]) {
   await redis.hsetAsync(WORDS_HASH, normalizeKey(word), JSON.stringify(entries));
   debug('saveCached:', word, entries.length);

@@ -15,6 +15,8 @@ interface VduEntry {
   word: string
   class?: string
   state?: string[]
+  // Set on engine answers cached by /krc; those are not VDU answers to compare with
+  source?: string
 }
 
 interface Tally {
@@ -105,6 +107,10 @@ async function main() {
 
   for await (const [key, entries] of scanWords(limit)) {
     const word = lower(key);
+    if (entries.some((e) => e.source)) {
+      add(words, 'engineCached');
+      continue;
+    }
     // Entries without an accent mark are words VDU did not know (often typos)
     const accented = entries.filter((e) => e.word.normalize('NFD').search(ACCENTS) >= 0);
     const vduForms = new Set(accented.map((e) => lower(e.word)));
@@ -180,6 +186,7 @@ async function main() {
   const withOptions = words.withOptions || 0;
   console.log(`Words compared: ${total} (skipped as noise: ${words.skippedNoise || 0}, encoding errors: ${words.encodeError || 0})`);
   console.log(`Words VDU did not know (no accent): ${words.vduUnknown || 0}, engine stressed ${words.vduUnknownEngineStressed || 0} of them`);
+  console.log(`Words whose cached answer is the engine's (skipped): ${words.engineCached || 0}`);
   console.log(`Engine found stress:            ${percent(withOptions, total)}  (${withOptions})`);
   console.log('Of the words the engine stressed:');
   console.log(`  picked form is a VDU form:    ${percent(words.selectedExact || 0, withOptions)}`);
